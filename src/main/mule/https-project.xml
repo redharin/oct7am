@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="f25c3f89-2ae3-4d91-9642-fe954cfb80d0" >
+		<http:listener-connection protocol="HTTPS" host="0.0.0.0" port="8082" >
+			<tls:context >
+				<tls:key-store type="jks" path="keystore.jks" alias="mule" keyPassword="123456789" password="123456789" />
+			</tls:context>
+		</http:listener-connection>
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="a8b14cd2-25ee-4abe-b6e7-acb4f9655db6" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="root" database="emp_db" />
+	</db:config>
+	<ee:object-store-caching-strategy name="Caching_Strategy" doc:name="Caching Strategy" doc:id="3489b36e-706c-44e8-be37-979a2379f5fc" keyGenerationExpression="#[attributes.queryParams.customerId]" >
+		<os:private-object-store maxEntries="1000" entryTtl="24" entryTtlUnit="HOURS" expirationIntervalUnit="SECONDS" />
+	</ee:object-store-caching-strategy>
+	<flow name="https-projectFlow" doc:id="d078c17b-029f-4e7a-9ef7-101d15a9447c" >
+		<http:listener doc:name="Listener" doc:id="9bec60d0-e29a-45ac-ae24-d54d943f38fa" config-ref="HTTP_Listener_config" path="/httpstest"/>
+		<ee:cache doc:name="Cache" doc:id="3bdd25a3-8159-4466-8ed8-92d9c095dd32" cachingStrategy-ref="Caching_Strategy">
+			<logger level="INFO" doc:name="Logger" doc:id="d3a92ebd-efd5-4869-86df-0335003e396f" message="Request going to fetch data from database"/>
+			<db:select doc:id="085f887a-adb6-4209-96d5-93c4d8cba0c1" config-ref="Database_Config">
+				<db:sql ><![CDATA[select * from emp_tbl where id = :id]]></db:sql>
+				<db:input-parameters ><![CDATA[#[{
+	id : attributes.queryParams.customerId
+}]]]></db:input-parameters>
+			</db:select>
+			<logger level="INFO" doc:name="Logger" doc:id="df08e0c0-8306-41e8-993f-444c19fe5cb6" message="Response received from Database"/>
+		</ee:cache>
+		<ee:transform doc:name="Transform Message" doc:id="f00550f5-1b3b-46bd-a7b9-57d7155c98bb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
